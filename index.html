@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focal — hands-free speed reading</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-base:#0f1115;
+    --bg-panel:#171a20;
+    --bg-panel-raised:#1c2028;
+    --border-subtle:#262b34;
+    --border-strong:#343a46;
+    --text-primary:#eae6dc;
+    --text-dim:#8b8f98;
+    --text-faint:#565b66;
+    --accent-amber:#e3a53c;
+    --accent-amber-soft:rgba(227,165,60,0.14);
+    --accent-teal:#4fb0a5;
+    --accent-teal-soft:rgba(79,176,165,0.16);
+    --font-display:'Space Grotesk',system-ui,sans-serif;
+    --font-body:'Source Serif 4',Georgia,serif;
+    --font-mono:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--bg-base);
+    color:var(--text-primary);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{position:relative;min-height:100vh;overflow:hidden;}
+  .screen{
+    position:absolute;inset:0;
+    display:none;
+    opacity:0;
+    transition:opacity .35s ease;
+  }
+  .screen.active{display:flex;opacity:1;}
+
+  /* ---------- Setup screen ---------- */
+  #setup{
+    flex-direction:column;
+    align-items:center;
+    padding:8vh 24px 6vh;
+    overflow-y:auto;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:5vh;
+  }
+  .brand-mark{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent-amber);
+    box-shadow:0 0 0 3px var(--accent-amber-soft);
+  }
+  .brand-name{
+    font-family:var(--font-display);
+    font-weight:700;font-size:15px;
+    letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .setup-card{
+    width:100%;max-width:560px;
+    background:var(--bg-panel);
+    border:1px solid var(--border-subtle);
+    border-radius:16px;
+    padding:32px;
+  }
+  h1.setup-title{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 6px;
+    color:var(--text-primary);
+  }
+  p.setup-sub{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0 0 28px;
+    line-height:1.6;
+  }
+  .dropzone{
+    border:1.5px dashed var(--border-strong);
+    border-radius:12px;
+    padding:28px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent-amber);
+    background:var(--accent-amber-soft);
+  }
+  .dz-icon{color:var(--text-faint);margin-bottom:10px;}
+  .dropzone:hover .dz-icon, .dropzone.drag .dz-icon{color:var(--accent-amber);}
+  .dz-title{
+    font-family:var(--font-display);
+    font-weight:500;font-size:15px;
+    margin:0 0 4px;color:var(--text-primary);
+  }
+  .dz-sub{
+    font-family:var(--font-mono);
+    font-size:12px;color:var(--text-dim);margin:0;
+  }
+  .or-divider{
+    display:flex;align-items:center;gap:12px;
+    margin:20px 0;
+    font-family:var(--font-mono);
+    font-size:11px;letter-spacing:.08em;
+    color:var(--text-faint);text-transform:uppercase;
+  }
+  .or-divider::before, .or-divider::after{
+    content:'';flex:1;height:1px;background:var(--border-subtle);
+  }
+  #paste-area{
+    width:100%;min-height:84px;resize:vertical;
+    background:var(--bg-panel-raised);
+    border:1px solid var(--border-subtle);
+    border-radius:10px;
+    color:var(--text-primary);
+    font-family:var(--font-body);
+    font-size:14px;line-height:1.6;
+    padding:12px 14px;
+  }
+  #paste-area:focus{outline:none;border-color:var(--accent-amber);}
+  #paste-area::placeholder{color:var(--text-faint);}
+
+  .controls-row{
+    display:flex;gap:20px;margin-top:26px;flex-wrap:wrap;
+  }
+  .control{flex:1;min-width:200px;}
+  .control label{
+    display:block;font-family:var(--font-mono);
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text-dim);margin-bottom:10px;
+  }
+  .wpm-control{display:flex;align-items:center;gap:10px;}
+  input[type="range"]{
+    -webkit-appearance:none;appearance:none;
+    flex:1;height:4px;border-radius:2px;
+    background:var(--border-strong);outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;
+    background:var(--accent-amber);cursor:pointer;
+    border:2px solid var(--bg-panel);
+    box-shadow:0 0 0 1px var(--accent-amber);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:var(--accent-amber);cursor:pointer;
+    border:2px solid var(--bg-panel);
+  }
+  #wpm-number{
+    width:64px;
+    background:var(--bg-panel-raised);
+    border:1px solid var(--border-subtle);
+    border-radius:8px;
+    color:var(--text-primary);
+    font-family:var(--font-mono);font-size:13px;
+    padding:6px 8px;text-align:center;
+  }
+  #wpm-number:focus{outline:none;border-color:var(--accent-amber);}
+  .unit{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+  .view-toggle{display:flex;gap:8px;}
+  .view-btn{
+    flex:1;
+    background:var(--bg-panel-raised);
+    border:1px solid var(--border-subtle);
+    border-radius:8px;
+    color:var(--text-dim);
+    font-family:var(--font-mono);font-size:13px;
+    padding:9px 10px;cursor:pointer;
+    transition:all .15s ease;
+  }
+  .view-btn.active{
+    border-color:var(--accent-amber);
+    color:var(--accent-amber);
+    background:var(--accent-amber-soft);
+  }
+  .view-btn:focus-visible, .dropzone:focus-visible, button:focus-visible, input:focus-visible{
+    outline:2px solid var(--accent-amber);outline-offset:2px;
+  }
+
+  .setup-footer{
+    margin-top:28px;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+  }
+  .doc-meta{
+    font-family:var(--font-mono);font-size:12px;
+    color:var(--text-dim);min-height:16px;
+  }
+  .start-btn{
+    background:var(--accent-amber);
+    color:#1a1305;
+    border:none;border-radius:10px;
+    font-family:var(--font-display);font-weight:700;font-size:15px;
+    padding:13px 26px;cursor:pointer;
+    transition:transform .12s ease, opacity .12s ease;
+    white-space:nowrap;
+  }
+  .start-btn:disabled{
+    background:var(--bg-panel-raised);
+    color:var(--text-faint);cursor:not-allowed;
+  }
+  .start-btn:not(:disabled):hover{transform:translateY(-1px);}
+  .start-btn:not(:disabled):active{transform:translateY(0);}
+
+  /* ---------- Reading stage ---------- */
+  #stage{
+    flex-direction:column;
+    background:radial-gradient(ellipse 900px 500px at 50% 40%, rgba(227,165,60,0.05), transparent 70%), var(--bg-base);
+  }
+  .progress-track{
+    position:absolute;top:0;left:0;right:0;height:3px;
+    background:var(--border-subtle);
+    z-index:5;
+  }
+  .progress-fill{
+    height:100%;width:0%;
+    background:var(--accent-amber);
+  }
+
+  .reading-pane{display:none;width:100%;height:100%;}
+  .reading-pane.visible{display:flex;}
+
+  /* Focal / RSVP view */
+  .focal-pane{
+    flex-direction:column;
+    align-items:center;
+    padding-top:38vh;
+  }
+  .pivot-guides{
+    position:relative;width:2px;height:46px;margin-bottom:6px;
+  }
+  .tick{
+    position:absolute;left:0;width:2px;height:14px;
+    background:var(--accent-amber);opacity:.55;
+  }
+  .tick-top{top:0;}
+  .tick-bottom{bottom:0;}
+  .word-display{
+    display:flex;align-items:baseline;justify-content:center;
+    width:min(90vw,900px);
+    font-family:var(--font-display);
+    font-weight:500;
+    font-size:clamp(2.2rem,7vw,4.4rem);
+    white-space:pre;
+    line-height:1;
+  }
+  .word-before{flex:1;text-align:right;color:var(--text-primary);}
+  .word-after{flex:1;text-align:left;color:var(--text-primary);}
+  .word-pivot{
+    color:var(--accent-amber);
+    font-weight:700;
+  }
+
+  /* Paragraph view */
+  .paragraph-pane{
+    align-items:flex-start;justify-content:center;
+    padding:0 24px;
+  }
+  .paragraph-scroll{
+    width:min(88vw,760px);
+    height:100vh;
+    overflow-y:auto;
+    padding:40vh 4px 40vh;
+    scrollbar-width:none;
+  }
+  .paragraph-scroll::-webkit-scrollbar{display:none;}
+  #paragraph-text{
+    font-family:var(--font-body);
+    font-size:clamp(1.15rem,2.6vw,1.55rem);
+    line-height:1.85;
+    color:var(--text-faint);
+    margin:0;
+  }
+  .p-word{transition:color .12s ease;}
+  .p-word.current{
+    color:var(--bg-base);
+    background:var(--accent-amber);
+    border-radius:4px;
+    box-shadow:0 0 0 2px var(--accent-amber);
+  }
+  .p-word.read{color:var(--text-dim);}
+
+  .stage-footer{
+    position:absolute;bottom:26px;left:0;right:0;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    font-family:var(--font-mono);font-size:12px;
+    color:var(--text-faint);
+  }
+  .stat{color:var(--text-dim);}
+  .stat-sep{opacity:.5;}
+  .pause-hint{margin-left:12px;opacity:.7;}
+
+  .pause-overlay{
+    position:absolute;inset:0;
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:22px;
+    background:rgba(15,17,21,0.88);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    z-index:10;
+  }
+  .pause-overlay.visible{display:flex;}
+  .pause-title{
+    font-family:var(--font-display);font-weight:700;font-size:22px;
+    color:var(--text-primary);margin:0;
+  }
+  .pause-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+  .pill-btn{
+    font-family:var(--font-mono);font-size:13px;
+    padding:11px 20px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--border-strong);
+    background:var(--bg-panel);color:var(--text-primary);
+    transition:all .15s ease;
+  }
+  .pill-btn:hover{border-color:var(--accent-amber);}
+  .pill-btn.primary{
+    background:var(--accent-amber);border-color:var(--accent-amber);color:#1a1305;
+    font-weight:700;
+  }
+
+  @media (max-width:640px){
+    .setup-card{padding:22px;}
+    .controls-row{flex-direction:column;gap:16px;}
+    .focal-pane{padding-top:32vh;}
+    .paragraph-scroll{padding-top:32vh;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .screen, .progress-fill, .p-word, .dropzone, .start-btn{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <section id="setup" class="screen active">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Focal</span>
+    </div>
+
+    <div class="setup-card">
+      <h1 class="setup-title">Hands-free speed reading</h1>
+      <p class="setup-sub">Load a PDF or paste text, set your pace, and press start. Nothing else to touch until it's done.</p>
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose a PDF file">
+        <input type="file" id="file-input" accept="application/pdf,.pdf" hidden>
+        <div class="dz-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+        </div>
+        <p class="dz-title">Drop a PDF, or click to choose one</p>
+        <p class="dz-sub" id="dz-status">Nothing loaded yet</p>
+      </div>
+
+      <div class="or-divider">or paste text</div>
+      <textarea id="paste-area" placeholder="Paste an article, page, or any text here..."></textarea>
+
+      <div class="controls-row">
+        <div class="control">
+          <label for="wpm-range">Reading rate</label>
+          <div class="wpm-control">
+            <input type="range" id="wpm-range" min="100" max="2000" step="10" value="300">
+            <input type="number" id="wpm-number" min="60" max="4000" step="10" value="300">
+            <span class="unit">wpm</span>
+          </div>
+        </div>
+        <div class="control">
+          <label id="view-label">View</label>
+          <div class="view-toggle" role="radiogroup" aria-labelledby="view-label">
+            <button type="button" class="view-btn active" data-view="focal" role="radio" aria-checked="true">Focal</button>
+            <button type="button" class="view-btn" data-view="paragraph" role="radio" aria-checked="false">Paragraph</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-footer">
+        <p id="doc-meta" class="doc-meta"></p>
+        <button id="start-btn" class="start-btn" disabled>Start reading</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="stage" class="screen" aria-live="polite">
+    <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+    <div id="focal-view" class="reading-pane focal-pane">
+      <div class="pivot-guides" aria-hidden="true">
+        <span class="tick tick-top"></span>
+        <span class="tick tick-bottom"></span>
+      </div>
+      <div class="word-display">
+        <span class="word-before" id="word-before"></span><span class="word-pivot" id="word-pivot"></span><span class="word-after" id="word-after"></span>
+      </div>
+    </div>
+
+    <div id="paragraph-view" class="reading-pane paragraph-pane">
+      <div class="paragraph-scroll" id="paragraph-scroll">
+        <p id="paragraph-text"></p>
+      </div>
+    </div>
+
+    <div class="stage-footer">
+      <span id="stat-wpm" class="stat"></span>
+      <span class="stat-sep">·</span>
+      <span id="stat-progress" class="stat"></span>
+      <span class="stat-sep">·</span>
+      <span id="stat-remaining" class="stat"></span>
+      <span class="pause-hint">space to pause</span>
+    </div>
+
+    <div id="pause-overlay" class="pause-overlay">
+      <p id="pause-title" class="pause-title">Paused</p>
+      <div class="pause-actions">
+        <button id="resume-btn" class="pill-btn primary">Resume</button>
+        <button id="restart-btn" class="pill-btn">Restart</button>
+        <button id="back-btn" class="pill-btn">New text</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ---------- Elements ----------
+  var setupScreen = document.getElementById('setup');
+  var stageScreen = document.getElementById('stage');
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('file-input');
+  var dzStatus = document.getElementById('dz-status');
+  var pasteArea = document.getElementById('paste-area');
+  var wpmRange = document.getElementById('wpm-range');
+  var wpmNumber = document.getElementById('wpm-number');
+  var viewButtons = Array.prototype.slice.call(document.querySelectorAll('.view-btn'));
+  var docMeta = document.getElementById('doc-meta');
+  var startBtn = document.getElementById('start-btn');
+
+  var progressFill = document.getElementById('progress-fill');
+  var focalView = document.getElementById('focal-view');
+  var paragraphView = document.getElementById('paragraph-view');
+  var wordBeforeEl = document.getElementById('word-before');
+  var wordPivotEl = document.getElementById('word-pivot');
+  var wordAfterEl = document.getElementById('word-after');
+  var paragraphScrollEl = document.getElementById('paragraph-scroll');
+  var paragraphTextEl = document.getElementById('paragraph-text');
+  var statWpm = document.getElementById('stat-wpm');
+  var statProgress = document.getElementById('stat-progress');
+  var statRemaining = document.getElementById('stat-remaining');
+  var pauseOverlay = document.getElementById('pause-overlay');
+  var pauseTitle = document.getElementById('pause-title');
+  var resumeBtn = document.getElementById('resume-btn');
+  var restartBtn = document.getElementById('restart-btn');
+  var backBtn = document.getElementById('back-btn');
+
+  // ---------- State ----------
+  var words = [];
+  var wordSpans = [];
+  var currentIndex = 0;
+  var playing = false;
+  var wpm = 300;
+  var view = 'focal';
+  var wordStartTime = 0;
+  var wordDuration = 0;
+  var remaining = 0;
+  var timerId = null;
+  var prevSpan = null;
+
+  // ---------- Helpers ----------
+  function tokenize(text){
+    return text.replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  }
+
+  function pivotIndex(word){
+    var len = word.length;
+    if(len<=1) return 0;
+    if(len<=5) return 1;
+    if(len<=9) return 2;
+    if(len<=13) return 3;
+    if(len<=17) return 4;
+    return 5;
+  }
+
+  function wordDurationMs(word, rate){
+    var base = 60000/rate;
+    var mult = 1;
+    if(/[.!?]["'”’)]?$/.test(word)) mult = 2.2;
+    else if(/[,;:]["'”’)]?$/.test(word)) mult = 1.5;
+    if(word.length>=9) mult *= 1.15;
+    if(word.length<=3) mult *= 0.9;
+    return base*mult;
+  }
+
+  function formatTime(totalSeconds){
+    var s = Math.max(0, Math.round(totalSeconds));
+    var m = Math.floor(s/60);
+    var sec = s%60;
+    return m + ':' + (sec<10?'0':'') + sec;
+  }
+
+  function isTypingTarget(el){
+    return el && (el.tagName==='INPUT' || el.tagName==='TEXTAREA');
+  }
+
+  // ---------- Setup screen wiring ----------
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  dropzone.addEventListener('keydown', function(e){
+    if(e.key==='Enter' || e.key===' '){ e.preventDefault(); fileInput.click(); }
+  });
+  dropzone.addEventListener('dragover', function(e){ e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', function(){ dropzone.classList.remove('drag'); });
+  dropzone.addEventListener('drop', function(e){
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) handleFile(file);
+  });
+  fileInput.addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(file) handleFile(file);
+  });
+
+  function handleFile(file){
+    var isPdf = file.type==='application/pdf' || /\.pdf$/i.test(file.name);
+    if(!isPdf){
+      dzStatus.textContent = 'Please choose a PDF file.';
+      return;
+    }
+    dzStatus.textContent = 'Reading PDF…';
+    startBtn.disabled = true;
+    extractPdfText(file).then(function(text){
+      words = tokenize(text);
+      pasteArea.value = '';
+      dzStatus.textContent = file.name + ' — ' + words.length.toLocaleString() + ' words loaded';
+      updateDocMeta();
+      startBtn.disabled = words.length===0;
+    }).catch(function(err){
+      console.error(err);
+      dzStatus.textContent = 'Could not read that PDF. Try another file.';
+    });
+  }
+
+  function extractPdfText(file){
+    return file.arrayBuffer().then(function(buf){
+      return pdfjsLib.getDocument({data:buf}).promise;
+    }).then(function(pdf){
+      var pageTexts = [];
+      var pageNum = 1;
+      function nextPage(){
+        if(pageNum>pdf.numPages) return Promise.resolve();
+        dzStatus.textContent = 'Reading PDF… page ' + pageNum + '/' + pdf.numPages;
+        return pdf.getPage(pageNum).then(function(page){
+          return page.getTextContent();
+        }).then(function(content){
+          var pageText = content.items.map(function(it){ return it.str; }).join(' ');
+          pageTexts.push(pageText);
+          pageNum++;
+          return nextPage();
+        });
+      }
+      return nextPage().then(function(){ return pageTexts.join('\n\n'); });
+    });
+  }
+
+  pasteArea.addEventListener('input', function(){
+    var text = pasteArea.value;
+    if(text.trim().length>0){
+      words = tokenize(text);
+      dzStatus.textContent = 'Nothing loaded yet';
+      updateDocMeta();
+      startBtn.disabled = false;
+    } else {
+      words = [];
+      updateDocMeta();
+      startBtn.disabled = true;
+    }
+  });
+
+  function updateDocMeta(){
+    if(!words.length){ docMeta.textContent = ''; return; }
+    var secs = words.length*60/wpm;
+    docMeta.textContent = words.length.toLocaleString() + ' words · about ' + formatTime(secs) + ' at ' + wpm + ' wpm';
+  }
+
+  wpmRange.addEventListener('input', function(){
+    wpm = parseInt(wpmRange.value,10);
+    wpmNumber.value = wpm;
+    updateDocMeta();
+  });
+  wpmNumber.addEventListener('input', function(){
+    var v = parseInt(wpmNumber.value,10);
+    if(isNaN(v)) return;
+    if(v<60) v=60;
+    if(v>4000) v=4000;
+    wpm = v;
+    wpmRange.value = Math.min(v,2000);
+    updateDocMeta();
+  });
+
+  viewButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      viewButtons.forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-checked','false'); });
+      btn.classList.add('active');
+      btn.setAttribute('aria-checked','true');
+      view = btn.dataset.view;
+    });
+  });
+
+  startBtn.addEventListener('click', startReading);
+
+  // ---------- Stage transitions ----------
+  function showStage(){
+    setupScreen.classList.remove('active');
+    stageScreen.classList.add('active');
+  }
+  function showSetup(){
+    stageScreen.classList.remove('active');
+    setupScreen.classList.add('active');
+    hidePauseOverlay();
+    progressFill.style.transition = 'none';
+    progressFill.style.width = '0%';
+  }
+
+  function updateViewVisibility(){
+    focalView.classList.toggle('visible', view==='focal');
+    paragraphView.classList.toggle('visible', view==='paragraph');
+  }
+
+  // ---------- Paragraph DOM build ----------
+  function buildParagraphDOM(){
+    var frag = document.createDocumentFragment();
+    wordSpans = [];
+    for(var i=0;i<words.length;i++){
+      var span = document.createElement('span');
+      span.className = 'p-word';
+      span.textContent = words[i] + ' ';
+      frag.appendChild(span);
+      wordSpans.push(span);
+    }
+    paragraphTextEl.innerHTML = '';
+    paragraphTextEl.appendChild(frag);
+    prevSpan = null;
+  }
+
+  function renderFocalWord(word){
+    var idx = pivotIndex(word);
+    wordBeforeEl.textContent = word.slice(0,idx);
+    wordPivotEl.textContent = word.slice(idx, idx+1);
+    wordAfterEl.textContent = word.slice(idx+1);
+  }
+
+  function highlightParagraphWord(i){
+    if(prevSpan){
+      prevSpan.classList.remove('current');
+      prevSpan.classList.add('read');
+    }
+    var span = wordSpans[i];
+    if(!span) return;
+    span.classList.add('current');
+    span.classList.remove('read');
+    prevSpan = span;
+
+    var containerRect = paragraphScrollEl.getBoundingClientRect();
+    var spanRect = span.getBoundingClientRect();
+    var delta = (spanRect.top - containerRect.top) - containerRect.height*0.4;
+    paragraphScrollEl.scrollTop += delta;
+  }
+
+  function updateStats(){
+    statWpm.textContent = wpm + ' wpm';
+    statProgress.textContent = Math.round((currentIndex/words.length)*100) + '%';
+    var remainingWords = words.length - currentIndex;
+    statRemaining.textContent = formatTime(remainingWords*60/wpm) + ' left';
+  }
+
+  // ---------- Progress bar ----------
+  function animateProgressTo(targetIndex, duration){
+    var pct = (targetIndex/words.length)*100;
+    progressFill.offsetHeight;
+    progressFill.style.transition = 'width ' + duration + 'ms linear';
+    progressFill.style.width = pct + '%';
+  }
+  function freezeProgress(){
+    var w = getComputedStyle(progressFill).width;
+    progressFill.style.transition = 'none';
+    progressFill.style.width = w;
+  }
+
+  // ---------- Playback engine ----------
+  function startReading(){
+    if(!words.length) return;
+    currentIndex = 0;
+    buildParagraphDOM();
+    updateViewVisibility();
+    showStage();
+    progressFill.style.transition = 'none';
+    progressFill.style.width = '0%';
+    playing = true;
+    playCurrentWord();
+  }
+
+  function playCurrentWord(){
+    var word = words[currentIndex];
+    if(view==='focal'){
+      renderFocalWord(word);
+    } else {
+      highlightParagraphWord(currentIndex);
+    }
+    updateStats();
+    wordDuration = wordDurationMs(word, wpm);
+    wordStartTime = Date.now();
+    animateProgressTo(currentIndex+1, wordDuration);
+    timerId = setTimeout(advance, wordDuration);
+  }
+
+  function advance(){
+    currentIndex++;
+    if(currentIndex>=words.length){
+      finishReading();
+      return;
+    }
+    playCurrentWord();
+  }
+
+  function pauseReading(){
+    if(!playing) return;
+    playing = false;
+    clearTimeout(timerId);
+    remaining = wordDuration - (Date.now()-wordStartTime);
+    freezeProgress();
+    showPauseOverlay('paused');
+  }
+
+  function resumeReading(){
+    if(playing) return;
+    playing = true;
+    hidePauseOverlay();
+    wordStartTime = Date.now();
+    var dur = remaining>0 ? remaining : wordDuration;
+    animateProgressTo(currentIndex+1, dur);
+    timerId = setTimeout(advance, dur);
+  }
+
+  function finishReading(){
+    playing = false;
+    clearTimeout(timerId);
+    statProgress.textContent = '100%';
+    statRemaining.textContent = '0:00 left';
+    showPauseOverlay('finished');
+  }
+
+  function restartReading(){
+    clearTimeout(timerId);
+    currentIndex = 0;
+    playing = true;
+    hidePauseOverlay();
+    if(view==='paragraph'){
+      prevSpan = null;
+      wordSpans.forEach(function(s){ s.classList.remove('current','read'); });
+      paragraphScrollEl.scrollTop = 0;
+    }
+    progressFill.style.transition = 'none';
+    progressFill.style.width = '0%';
+    playCurrentWord();
+  }
+
+  function backToSetup(){
+    clearTimeout(timerId);
+    playing = false;
+    showSetup();
+  }
+
+  function showPauseOverlay(mode){
+    pauseOverlay.classList.add('visible');
+    if(mode==='finished'){
+      pauseTitle.textContent = 'Done — nice reading';
+      resumeBtn.style.display = 'none';
+    } else {
+      pauseTitle.textContent = 'Paused';
+      resumeBtn.style.display = 'inline-flex';
+    }
+  }
+  function hidePauseOverlay(){
+    pauseOverlay.classList.remove('visible');
+  }
+
+  resumeBtn.addEventListener('click', resumeReading);
+  restartBtn.addEventListener('click', restartReading);
+  backBtn.addEventListener('click', backToSetup);
+
+  document.addEventListener('keydown', function(e){
+    if(!stageScreen.classList.contains('active')) return;
+    if(isTypingTarget(document.activeElement)) return;
+
+    if(e.code==='Space'){
+      e.preventDefault();
+      if(pauseOverlay.classList.contains('visible') && pauseTitle.textContent!=='Done — nice reading'){
+        resumeReading();
+      } else if(playing){
+        pauseReading();
+      } else if(!pauseOverlay.classList.contains('visible')){
+        resumeReading();
+      }
+    } else if(e.code==='Escape'){
+      backToSetup();
+    }
+  });
+
+  updateDocMeta();
+})();
+</script>
+
+</body>
+</html>
